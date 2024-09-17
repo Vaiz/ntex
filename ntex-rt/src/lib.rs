@@ -458,6 +458,89 @@ mod glommio {
     }
 }
 
+#[allow(dead_code)]
+#[cfg(feature = "folo")]
+mod folo {
+    use std::future::{poll_fn, Future};
+    pub type JoinError = folo_io::io::Error;
+
+    /// Runs the provided future, blocking the current thread until the future
+    /// completes.
+    pub fn block_on<F: Future<Output = ()> + 'static>(_fut: F) {
+        log::warn!("Trying to call block_on on folo runtime");
+        unimplemented!("folo::block_on");
+        /*
+        let (tx, rx) = oneshot::channel();
+        folo_io::rt::spawn(async move {
+            fut.await;
+            let _ = tx.send(());
+        });
+        let _ = rx.recv();
+         */
+    }
+
+    /// Spawns a blocking task.
+    ///
+    /// The task will be spawned onto a thread pool specifically dedicated
+    /// to blocking tasks. This is useful to prevent long-running synchronous
+    /// operations from blocking the main futures executor.
+    pub fn spawn_blocking<F, T>(f: F) -> folo_io::rt::RemoteJoinHandle<folo_io::io::Result<T>>
+    where
+        F: FnOnce() -> T + Send + Sync + 'static,
+        T: Send + 'static,
+    {
+        folo_io::rt::spawn_sync(folo_io::rt::SynchronousTaskType::Compute, move || Ok(f()))
+    }
+
+    /// Spawn a future on the current thread. This does not create a new Arbiter
+    /// or Arbiter address, it is simply a helper for spawning futures on the current
+    /// thread.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if ntex system is not running.
+    #[inline]
+    pub fn spawn<F>(f: F) -> folo_io::rt::LocalJoinHandle<F::Output>
+    where
+        F: Future + 'static,
+    {
+        let ptr = crate::CB.with(|cb| (cb.borrow().0)());
+        folo_io::rt::spawn(async move {
+            if let Some(ptr) = ptr {
+                let mut f = std::pin::pin!(f);
+                let result = poll_fn(|ctx| {
+                    let new_ptr = crate::CB.with(|cb| (cb.borrow().1)(ptr));
+                    let result = f.as_mut().poll(ctx);
+                    crate::CB.with(|cb| (cb.borrow().2)(new_ptr));
+                    result
+                })
+                .await;
+                crate::CB.with(|cb| (cb.borrow().3)(ptr));
+                result
+            } else {
+                f.await
+            }
+        })
+    }
+
+    /// Executes a future on the current thread. This does not create a new Arbiter
+    /// or Arbiter address, it is simply a helper for executing futures on the current
+    /// thread.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if ntex system is not running.
+    #[inline]
+    pub fn spawn_fn<F, R>(f: F) -> folo_io::rt::LocalJoinHandle<R::Output>
+    where
+        F: FnOnce() -> R + 'static,
+        R: Future + 'static,
+    {
+        spawn(async move { f().await })
+    }
+}
+
+
 #[cfg(feature = "tokio")]
 pub use self::tokio::*;
 
@@ -465,6 +548,7 @@ pub use self::tokio::*;
     not(feature = "tokio"),
     not(feature = "compio"),
     not(feature = "glommio"),
+    not(feature = "folo"),
     feature = "async-std",
 ))]
 pub use self::asyncstd::*;
@@ -473,6 +557,7 @@ pub use self::asyncstd::*;
     not(feature = "tokio"),
     not(feature = "compio"),
     not(feature = "async-std"),
+    not(feature = "folo"),
     feature = "glommio"
 ))]
 pub use self::glommio::*;
@@ -481,16 +566,27 @@ pub use self::glommio::*;
     not(feature = "tokio"),
     not(feature = "glommio"),
     not(feature = "async-std"),
+    not(feature = "folo"),
     feature = "compio"
 ))]
 pub use self::compio::*;
+
+#[cfg(all(
+    not(feature = "tokio"),
+    not(feature = "glommio"),
+    not(feature = "async-std"),
+    not(feature = "compio"),
+    feature = "folo"
+))]
+pub use self::folo::*;
 
 #[allow(dead_code)]
 #[cfg(all(
     not(feature = "tokio"),
     not(feature = "async-std"),
     not(feature = "compio"),
-    not(feature = "glommio")
+    not(feature = "glommio"),
+    not(feature = "folo"),
 ))]
 mod no_rt {
     use std::task::{Context, Poll};
@@ -554,6 +650,7 @@ mod no_rt {
     not(feature = "tokio"),
     not(feature = "async-std"),
     not(feature = "compio"),
-    not(feature = "glommio")
+    not(feature = "glommio"),
+    not(feature = "folo"),
 ))]
 pub use self::no_rt::*;

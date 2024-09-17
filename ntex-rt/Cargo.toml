@@ -30,6 +30,8 @@ compio = ["comp-io"]
 # async-std support
 async-std = ["async_std/unstable"]
 
+folo = ["folo-io"]
+
 [dependencies]
 async-channel = "2"
 futures-core = "0.3"
@@ -44,6 +46,7 @@ tok-io = { version = "1", package = "tokio", default-features = false, features 
     "rt",
     "net",
 ], optional = true }
+folo-io = { path = "../../folo/crates/folo", package = "folo", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 glomm-io = { version = "0.8", package = "glommio", optional = true }

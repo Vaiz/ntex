@@ -18,7 +18,7 @@ edition = "2021"
 rust-version = "1.75"
 
 [package.metadata.docs.rs]
-features = ["compio", "tokio", "openssl", "rustls", "compress", "cookie", "ws", "brotli"]
+features = ["compio", "tokio", "openssl", "rustls", "compress", "cookie", "ws", "brotli", "folo"]
 
 [lib]
 name = "ntex"
@@ -53,6 +53,9 @@ async-std = ["ntex-net/async-std"]
 
 # compio runtime
 compio = ["ntex-net/compio"]
+
+# folo runtime
+folo = ["ntex-net/folo"]
 
 # websocket support
 ws = ["dep:sha-1"]

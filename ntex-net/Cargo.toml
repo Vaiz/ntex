@@ -30,6 +30,9 @@ glommio = ["ntex-rt/glommio", "ntex-glommio"]
 # async-std runtime
 async-std = ["ntex-rt/async-std", "ntex-async-std"]
 
+# folo runtime
+folo = ["ntex-rt/folo", "ntex-folo"]
+
 [dependencies]
 ntex-service = "3"
 ntex-bytes = "0.1"
@@ -42,6 +45,7 @@ ntex-tokio = { version = "0.5.2", optional = true }
 ntex-compio = { version = "0.1.2", optional = true }
 ntex-glommio = { version = "0.5.1", optional = true }
 ntex-async-std = { version = "0.5.1", optional = true }
+ntex-folo = { path = "../ntex-folo", optional = true }
 
 log = "0.4"
 thiserror = "1"
