@@ -19,6 +19,7 @@ members = [
   "ntex-compio",
   "ntex-glommio",
   "ntex-tokio",
+  "ntex-folo",
 ]
 
 [patch.crates-io]
