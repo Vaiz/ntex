@@ -59,7 +59,7 @@ impl ntex_io::AsyncRead for Read {
                 (buf, Ok(pinned_buf.len()))
             }
             Err(e) => {
-                (buf, Err(to_std_io_error(e)))
+                (buf, Err(e.into()))
             }
         }
     }
@@ -88,7 +88,7 @@ impl ntex_io::AsyncWrite for Write {
                 Ok(())
             }
             Err(e) => {
-                Err(to_std_io_error(e))
+                Err(e.into())
             }
         }
     }
@@ -108,14 +108,7 @@ impl ntex_io::AsyncWrite for Write {
 fn to_std_io_result<T>(r: folo::io::Result<T>) -> std::io::Result<T> {
     match r {
         Ok(t) => Ok(t),
-        Err(e) => Err(to_std_io_error(e)),
+        Err(e) => Err(e.into()),
     }
 }
 
-fn to_std_io_error(e: folo::io::Error) -> std::io::Error {
-    if let folo::io::Error::StdIo(e) = e {
-        e
-    } else {
-        std::io::Error::new(std::io::ErrorKind::Other, format!("{e}"))
-    }
-}
