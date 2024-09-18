@@ -462,7 +462,20 @@ mod glommio {
 #[cfg(feature = "folo")]
 mod folo {
     use std::future::{poll_fn, Future};
+    use std::{pin::Pin, task::ready, task::Context, task::Poll};
     pub type JoinError = folo_io::io::Error;
+
+    pub struct JoinHandle<T> {
+        fut: folo_io::rt::RemoteJoinHandle<T>,
+    }
+
+    impl<T: 'static> Future for JoinHandle<T> {
+        type Output = Result<T, JoinError>;
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            Poll::Ready(Ok(ready!(Pin::new(&mut self.fut).poll(cx))))
+        }
+    }
 
     /// Runs the provided future, blocking the current thread until the future
     /// completes.
@@ -484,12 +497,14 @@ mod folo {
     /// The task will be spawned onto a thread pool specifically dedicated
     /// to blocking tasks. This is useful to prevent long-running synchronous
     /// operations from blocking the main futures executor.
-    pub fn spawn_blocking<F, T>(f: F) -> folo_io::rt::RemoteJoinHandle<folo_io::io::Result<T>>
+    pub fn spawn_blocking<F, T>(f: F) -> JoinHandle<T>
     where
         F: FnOnce() -> T + Send + Sync + 'static,
         T: Send + 'static,
     {
-        folo_io::rt::spawn_sync(folo_io::rt::SynchronousTaskType::Compute, move || Ok(f()))
+        JoinHandle {
+            fut: folo_io::rt::spawn_sync(folo_io::rt::SynchronousTaskType::Compute, move || f())
+        }
     }
 
     /// Spawn a future on the current thread. This does not create a new Arbiter
@@ -500,12 +515,12 @@ mod folo {
     ///
     /// This function panics if ntex system is not running.
     #[inline]
-    pub fn spawn<F>(f: F) -> folo_io::rt::LocalJoinHandle<F::Output>
+    pub fn spawn<F>(f: F) -> JoinHandle<F::Output>
     where
         F: Future + 'static,
     {
         let ptr = crate::CB.with(|cb| (cb.borrow().0)());
-        folo_io::rt::spawn(async move {
+        let handle = folo_io::rt::spawn(async move {
             if let Some(ptr) = ptr {
                 let mut f = std::pin::pin!(f);
                 let result = poll_fn(|ctx| {
@@ -520,7 +535,11 @@ mod folo {
             } else {
                 f.await
             }
-        })
+        });
+
+        JoinHandle {
+            fut: handle.into()
+        }
     }
 
     /// Executes a future on the current thread. This does not create a new Arbiter
@@ -531,7 +550,7 @@ mod folo {
     ///
     /// This function panics if ntex system is not running.
     #[inline]
-    pub fn spawn_fn<F, R>(f: F) -> folo_io::rt::LocalJoinHandle<R::Output>
+    pub fn spawn_fn<F, R>(f: F) -> JoinHandle<R::Output>
     where
         F: FnOnce() -> R + 'static,
         R: Future + 'static,
