@@ -46,7 +46,7 @@ tok-io = { version = "1", package = "tokio", default-features = false, features 
     "rt",
     "net",
 ], optional = true }
-folo-io = { path = "../../folo/crates/folo", package = "folo", optional = true }
+folo-io = { git = "https://github.com/sandersaares/folo.git", branch = "ntex", package = "folo", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 glomm-io = { version = "0.8", package = "glommio", optional = true }
